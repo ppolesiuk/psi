@@ -1,0 +1,161 @@
+(* PSI predule module v 0.1 by Piotr Polesiuk *)
+
+// Operators
+let (<|) f a = f a in
+let (|>) a f = f a in
+
+// Commonly used functions
+let id x = x in
+
+let flip f x y = f y x in
+
+// Module List
+let List =
+	(System.Psi.topElementWithDefault {} "List") @
+	{ all = fun f ->
+		let allT l =
+			match l with
+			| [] -> <True>
+			| [x|xs] -> f x && allT xs
+		in allT
+	, exists = fun f ->
+		let existsT l =
+			match l with
+			| [] -> <False>
+			| [x|xs] -> f x || existsT xs
+		in existsT
+	, filter = fun f ->
+		let filterT l =
+			match l with
+			| []     -> []
+			| [x|xs] ->
+				if f x then [x|filterT xs]
+				else filterT xs
+		in filterT
+	, foldl = fun f ->
+		let foldlT z l =
+			match l with
+			| []     -> z
+			| [x|xs] -> foldlT (f z x) xs
+		in foldlT
+	, iter = fun f ->
+		let iterT l =
+			match l with
+			| []     -> ()
+			| [x|xs] -> f x; iterT xs
+		in iterT
+	, map = fun f ->
+		let mapT l =
+			match l with
+			| []     -> []
+			| [x|xs] -> [f x|mapT xs]
+		in mapT
+	, rev =
+		let revAcc acc l =
+			match l with
+			| []     -> acc
+			| [x|xs] -> revAcc [x|acc] xs
+		in revAcc []
+	, revRange =
+		let revRange k n =
+			if k < n then []
+			else [k|revRange (k-1) n]
+		in revRange
+	, range = 
+		let range k n =
+			if k > n then []
+			else [k|range (k+1) n]
+		in range
+	}
+in
+
+// Module LazyList
+let LazyList =
+	(System.Psi.topElementWithDefault {} "LazyList") @
+	{ const = fun x ->
+		let res = ref 0 in
+			res := <LCons> x res; res
+	, fromList =
+		let fromListT l () =
+			match l with
+			| []     -> <LNil>
+			| [x|xs] -> <LCons> x (ref (<LLazy> (fromListT xs)))
+		in fun l -> ref (<LLazy> (fromListT l))
+	, filter = fun f ->
+		let filterT l () =
+			match !l with
+			| <LNil> -> <LNil>
+			| <LCons> x xs -> 
+				if f x then <LCons> x (ref (<LLazy> (filterT xs)))
+				else <LLazy> (filterT xs)
+			| <LLazy> g ->
+				l := g ();
+				filterT l ()
+		in fun l -> ref (<LLazy> (filterT l))
+	, genNat = fun () ->
+		let natT n () = <LCons> n (ref (<LLazy> (natT (n+1)))) in
+			ref (<LLazy> (natT 0))
+	, head = fun l ->
+		let headT () =
+			match !l with
+			| <LCons> x xs -> x
+			| <LLazy> f ->
+				l := f ();
+				headT ()
+		in headT ()
+	, map = fun f ->
+		let mapT l () =
+			match !l with
+			| <LNil> -> <LNil>
+			| <LCons> x xs ->
+				<LCons> (f x) (ref (<LLazy> (mapT xs)))
+			| <LLazy> g ->
+				l := g ();
+				mapT l ()
+		in fun l -> ref (<LLazy> (mapT l))
+	, nat =
+		let natT n () = <LCons> n (ref (<LLazy> (natT (n+1)))) in
+			ref (<LLazy> (natT 0))
+	, toList =
+		let toList l =
+			match !l with
+			| <LNil>       -> []
+			| <LCons> x xs -> [x|toList xs]
+			| <LLazy> f ->
+				l := f ();
+				toList l
+		in toList
+	, tail = fun l ->
+		let tailT () =
+			match !l with
+			| <LCons> x xs -> xs
+			| <LLazy> f ->
+				l := f ();
+				tailT ()
+		in tailT ()
+	, take = fun n l ->
+		let takeT n l () =
+			if n = 0 then <LNil>
+			else
+				match !l with
+				| <LNil>       -> <LNil>
+				| <LCons> x xs -> <LCons> x (ref (<LLazy> (takeT (n-1) xs)))
+				| <LLazy> f ->
+					l := f ();
+					takeT n l ()
+		in ref (<LLazy> (takeT n l))
+	, touch = fun n l ->
+		let touchT n l =
+			if n = 0 then l
+			else
+				match !l with
+				| <LNil>       -> ()
+				| <LCons> x xs -> touchT (n-1) xs
+				| <LLazy> f    ->
+					l := f ();
+					touchT n l
+		in touchT n l; l
+	}
+in
+
+top

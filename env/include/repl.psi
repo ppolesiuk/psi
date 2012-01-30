@@ -1,0 +1,28 @@
+(* PSI REPL v 0.1 by Piotr Polesiuk *)
+
+import "prelude.psi";
+
+let repl () =
+	System.printString "> ";
+	let line = System.readLine () in
+	if line <> "quit" then
+	(
+		match System.Psi.tryParse line with
+		| <Error> err ->
+			System.printlnString err
+		| <Ok> ins ->
+			match System.Psi.tryEval ins with
+			| <Error> err ->
+				System.printlnString err
+			| <Ok> val ->
+				System.printlnString (System.Psi.valueToString val)
+	); repl ()
+in
+			
+let main args =
+	System.printlnString "PSI REPL v 0.1 by Piotr Polesiuk\n";
+	List.iter System.Psi.tryImport args;
+	repl ()
+in
+
+top
